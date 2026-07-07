@@ -50,6 +50,18 @@ npm install
 npx playwright test
 ```
 
+> Tests are matched via `tests/**/*.spec.ts` pattern. Only **Chromium** is enabled by default (Firefox and WebKit are disabled).
+
+## Configuration
+
+| Setting     | Value            |
+|-------------|------------------|
+| Headless    | `false`          |
+| Screenshots | `on` (every test)|
+| Video       | `on` (every test)|
+| Viewport    | 1920 × 1080      |
+| Trace       | on-first-retry   |
+
 ## Report
 
 ```bash
