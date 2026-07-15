@@ -8,7 +8,7 @@ A structured, hands-on project for learning **Playwright** test automation from 
 tests/
 ├── 01_Basics                 # Playwright setup & basic concepts
 ├── 02_first_tests            # Writing your first tests
-├── 03_Locators_Commands      # Locators & built-in commands (incl. XPath tasks)
+├── 03_Locators_Commands      # Locators & built-in commands (incl. XPath tasks & VWO signup tests)
 ├── 04_Session_Storage        # Session & storage handling
 ├── 05_Allure_Reporting       # Allure report integration
 ├── 06_Multiple_Element_      # Working with multiple elements
