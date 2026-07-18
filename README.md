@@ -37,6 +37,8 @@ tests/
 - [Playwright](https://playwright.dev/) v1.61+
 - TypeScript / JavaScript
 - Node.js
+- [Allure Report](https://docs.qameta.io/allure/) - test reporting
+- Custom TTA HTML Reporter - real-time test execution report
 
 ## Setup
 
@@ -64,6 +66,34 @@ npx playwright test
 
 ## Report
 
+### Playwright HTML Report
 ```bash
 npx playwright show-report
 ```
+
+### Allure Report
+```bash
+npx allure generate allure-results --clean -o allure-report
+npx allure open allure-report
+```
+
+### TTA Custom HTML Report
+The custom reporter generates a real-time HTML report in `tta-report/` with:
+- Live test execution tracking
+- Step-by-step breakdown with screenshots
+- Video & trace attachments
+- Filterable test table (by status & priority)
+- Test history page
+
+```bash
+# Open latest report
+start tta-report/index.html
+```
+
+## Reporters
+
+| Reporter | Config | Output |
+|----------|--------|--------|
+| Line | `["line"]` | Console output |
+| Allure | `["allure-playwright"]` | `allure-results/` |
+| Custom TTA | `["./utils/CustomReporter.ts"]` | `tta-report/` |
