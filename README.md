@@ -35,10 +35,11 @@ tests/
 ## Concepts Covered
 
 - **Locators & Assertions** - Built-in locators (`getByRole`, `getByText`, `getByTestId`, etc.), XPath, and `expect` assertions
-- **Windows & Dialogs** - Browser windows, iframes, shadow DOM, and JS dialogs (alert, confirm, prompt)
+- **Windows & Dialogs** - Browser windows, iframes, shadow DOM (basic & nested), and JS dialogs (alert, confirm, prompt)
 - **Alerts** - Simple, confirmation, and prompt alerts handled via `page.on('dialog')`
 - **Web Elements** - Tables, select dropdowns, file upload/download, SVG interaction, and mouse hover
 - **Interactions** - Keyboard, double-click, and drag-and-drop (including `boundingBox` + `page.mouse` fallback)
+- **Shadow DOM** - Direct shadow DOM interaction and nested shadow DOM traversal (XPath does not pierce shadow DOM)
 - **Session & Storage** - Session storage handling
 - **Frameworks** - Page Object Model, fixtures, data-driven testing, and test hooks
 - **Reporting** - Allure and a custom TTA HTML reporter
