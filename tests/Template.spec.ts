@@ -1,4 +1,10 @@
-import { test, expect } from "@playwright/test";
-test('Verify 1st TC', async ({ page }) => {
+import { test, expect } from '@playwright/test';
+const url: string = "";
+test.describe('', () => {
+    test.beforeEach(async ({ page }) => {
+        await page.goto(url);
+    });
+    test('TC_01 : ', async ({ page }) => {
 
+    });
 })
