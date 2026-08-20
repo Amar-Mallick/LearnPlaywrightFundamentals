@@ -24,9 +24,9 @@ tests/
 ├── 16_Scroll_toElement       # Scrolling to elements
 ├── 17_Expect_Assertions      # Assertions & expectations
 ├── 18_Test_hooks             # Before/after test hooks
-├── 19_Data_Driven_Testing    # Data-driven test approaches
-├── 20_Page_Object_Model      # Page Object Model pattern
-├── 21_Fixture                # Playwright fixtures
+├── 19_Fixture                # Playwright fixtures
+├── 20_Data_Driven_Testing    # Data-driven test approaches
+├── 21_Page_Object_Model      # Page Object Model pattern (Login & Inventory)
 ├── 22_Misc_Concepts          # Miscellaneous concepts
 ├── 23_Advance_Framework      # Advanced framework design
 └── Projects                  # End-to-end project work
