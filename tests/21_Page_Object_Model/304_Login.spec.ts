@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { LoginPage } from './TTACART_LogInPage';
+import { LoginPage } from './LogInPage';
 test.describe('TTA-Cart LogIn Page Test with POM', () => {
     test('TC_01: verfiy login using valid credentials', async ({ page }) => {
         const loginPage = new LoginPage(page);
