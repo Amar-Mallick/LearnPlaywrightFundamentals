@@ -256,18 +256,38 @@ class CustomTTAReporter implements Reporter {
                 }
             }
 
-            if (attachment.contentType === 'video/webm' && attachment.path) {
-                const videoName = `video_${this.testCounter}.webm`;
+            if (attachment.contentType === 'video/webm' || attachment.contentType === 'video/mp4') {
+                const ext = attachment.contentType === 'video/mp4' ? 'mp4' : 'webm';
+                const videoName = `video_${this.testCounter}.${ext}`;
                 const destPath = path.join('tta-report', 'videos', videoName);
                 const destDir = path.dirname(destPath);
                 if (!fs.existsSync(destDir)) {
                     fs.mkdirSync(destDir, { recursive: true });
                 }
                 try {
-                    fs.copyFileSync(attachment.path, destPath);
+                    if (attachment.path) {
+                        let copied = false;
+                        for (let attempt = 0; attempt < 3; attempt++) {
+                            try {
+                                fs.copyFileSync(attachment.path, destPath);
+                                copied = true;
+                                break;
+                            } catch {
+                                if (attempt < 2) {
+                                    const start = Date.now();
+                                    while (Date.now() - start < 1000) { /* wait 1s */ }
+                                }
+                            }
+                        }
+                        if (!copied) {
+                            throw new Error(`Failed after 3 attempts`);
+                        }
+                    } else if (attachment.body) {
+                        fs.writeFileSync(destPath, attachment.body);
+                    }
                     videoPath = `videos/${videoName}`;
-                } catch {
-                    console.warn(`Failed to copy video: ${attachment.path}`);
+                } catch (err) {
+                    console.warn(`Failed to copy video: ${attachment.path || 'no path'} - ${err}`);
                 }
             }
 
