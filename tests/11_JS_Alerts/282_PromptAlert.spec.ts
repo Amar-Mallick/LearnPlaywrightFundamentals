@@ -14,7 +14,7 @@ test('Prompt Alert handling through playwright', async ({ page }) => {
 
 
     })
-    await page.pause();
+    // await page.pause();
     await page.getByText('Prompt Alert', { exact: true }).click();
 
 })
