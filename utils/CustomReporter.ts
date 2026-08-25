@@ -3,6 +3,7 @@
  * @author Amar Mallick
  * @website https://thetestingacademy.com
  * @version 1.0.0
+ * @license : MIT
  * @description Custom HTML Reporter for Playwright Test Automation Framework
  */
 
@@ -224,18 +225,22 @@ class CustomTTAReporter implements Reporter {
         }
         console.log(`\n   📊 Running Total: ✅ ${this.suiteStats.passed} | ❌ ${this.suiteStats.failed} | ⏭️ ${this.suiteStats.skipped}`);
 
+        // Build a readable & globally unique ID using test title + timestamp (No Playwright Hash IDs)
+        const cleanTitle = test.title.replace(/[^a-zA-Z0-9]/g, '');
+        const retrySuffix = result.retry > 0 ? `_retry${result.retry}` : '';
+        const uniqueArtifactId = `${cleanTitle}_${Date.now()}${retrySuffix}`;
+
         const currentTestSteps = this.testStepsMap.get(test.id) || [];
         const testLogs = this.collectTestLogs(result);
         this.associateLogsWithSteps(test, result, currentTestSteps, testLogs);
 
         const screenshots: { name: string; path: string }[] = [];
         const stepScreenshots: Map<string, string> = new Map();
-        let videoPath: string | undefined;
-        let tracePath: string | undefined;
 
+        // Process Screenshots immediately using uniqueArtifactId
         for (const attachment of result.attachments) {
             if (attachment.contentType === 'image/png') {
-                const screenshotName = `screenshot_${this.testCounter}_${screenshots.length + 1}.png`;
+                const screenshotName = `screenshot_${uniqueArtifactId}_${screenshots.length + 1}.png`;
                 const destPath = path.join('tta-report', 'screenshots', screenshotName);
                 const destDir = path.dirname(destPath);
                 if (!fs.existsSync(destDir)) {
@@ -255,57 +260,15 @@ class CustomTTAReporter implements Reporter {
                     console.warn(`Failed to save screenshot: ${attachment.name}`);
                 }
             }
-
-            if (attachment.contentType === 'video/webm' || attachment.contentType === 'video/mp4') {
-                const ext = attachment.contentType === 'video/mp4' ? 'mp4' : 'webm';
-                const videoName = `video_${this.testCounter}.${ext}`;
-                const destPath = path.join('tta-report', 'videos', videoName);
-                const destDir = path.dirname(destPath);
-                if (!fs.existsSync(destDir)) {
-                    fs.mkdirSync(destDir, { recursive: true });
-                }
-                try {
-                    if (attachment.path) {
-                        let copied = false;
-                        for (let attempt = 0; attempt < 3; attempt++) {
-                            try {
-                                fs.copyFileSync(attachment.path, destPath);
-                                copied = true;
-                                break;
-                            } catch {
-                                if (attempt < 2) {
-                                    const start = Date.now();
-                                    while (Date.now() - start < 1000) { /* wait 1s */ }
-                                }
-                            }
-                        }
-                        if (!copied) {
-                            throw new Error(`Failed after 3 attempts`);
-                        }
-                    } else if (attachment.body) {
-                        fs.writeFileSync(destPath, attachment.body);
-                    }
-                    videoPath = `videos/${videoName}`;
-                } catch (err) {
-                    console.warn(`Failed to copy video: ${attachment.path || 'no path'} - ${err}`);
-                }
-            }
-
-            if (attachment.name === 'trace' && attachment.path) {
-                const traceName = `trace_${this.testCounter}.zip`;
-                const destPath = path.join('tta-report', 'traces', traceName);
-                const destDir = path.dirname(destPath);
-                if (!fs.existsSync(destDir)) {
-                    fs.mkdirSync(destDir, { recursive: true });
-                }
-                try {
-                    fs.copyFileSync(attachment.path, destPath);
-                    tracePath = `traces/${traceName}`;
-                } catch {
-                    console.warn(`Failed to copy trace: ${attachment.path}`);
-                }
-            }
         }
+
+        // Store raw temporary paths for video and trace; copying takes place safely in onEnd
+        const rawVideo = result.attachments.find(a =>
+            (a.contentType === 'video/webm' || a.contentType === 'video/mp4') && a.path
+        );
+        const rawTrace = result.attachments.find(a =>
+            a.name === 'trace' && a.path
+        );
 
         // Associate screenshots with steps
         for (const step of currentTestSteps) {
@@ -346,7 +309,7 @@ class CustomTTAReporter implements Reporter {
         const tagMatches = test.title.match(/@\w+/g) || [];
 
         const testData: TestData = {
-            id: `test-${test.id}`,
+            id: uniqueArtifactId, // Used as unique identifier for video/trace naming in onEnd
             title: test.title,
             fullTitle: [...describePath, test.title].join(' › '),
             file: test.location.file,
@@ -358,8 +321,8 @@ class CustomTTAReporter implements Reporter {
             screenshots: screenshots,
             steps: [...currentTestSteps],
             logs: testLogs,
-            video: videoPath,
-            trace: tracePath,
+            video: rawVideo?.path,
+            trace: rawTrace?.path,
             error: result.error?.message,
             errorStack: result.error?.stack,
             tags: tagMatches,
@@ -425,13 +388,58 @@ class CustomTTAReporter implements Reporter {
 
     async onEnd(_result: FullResult): Promise<void> {
         this.endTime = new Date();
+
+        // Safe copy phase: runs after all tests finish and browser streams flush to disk
+        for (const test of this.testResults) {
+            // Process Video
+            if (test.video && fs.existsSync(test.video)) {
+                const ext = path.extname(test.video) || '.webm';
+                const videoName = `video_${test.id}${ext}`;
+                const destPath = path.join('tta-report', 'videos', videoName);
+
+                if (!fs.existsSync(path.dirname(destPath))) {
+                    fs.mkdirSync(path.dirname(destPath), { recursive: true });
+                }
+
+                try {
+                    fs.copyFileSync(test.video, destPath);
+                    test.video = `videos/${videoName}`;
+                } catch (err) {
+                    console.warn(`Failed to copy video for test ${test.id}: ${err}`);
+                    test.video = undefined;
+                }
+            } else {
+                test.video = undefined;
+            }
+
+            // Process Trace
+            if (test.trace && fs.existsSync(test.trace)) {
+                const traceName = `trace_${test.id}.zip`;
+                const destPath = path.join('tta-report', 'traces', traceName);
+
+                if (!fs.existsSync(path.dirname(destPath))) {
+                    fs.mkdirSync(path.dirname(destPath), { recursive: true });
+                }
+
+                try {
+                    fs.copyFileSync(test.trace, destPath);
+                    test.trace = `traces/${traceName}`;
+                } catch (err) {
+                    console.warn(`Failed to copy trace for test ${test.id}: ${err}`);
+                    test.trace = undefined;
+                }
+            } else {
+                test.trace = undefined;
+            }
+        }
+
         const duration = this.formatDuration(this.endTime.getTime() - this.startTime.getTime());
         const passRate = this.suiteStats.total > 0
             ? ((this.suiteStats.passed / this.suiteStats.total) * 100).toFixed(1)
             : '0';
 
         console.log('\n╔════════════════════════════════════════════════════════════════╗');
-        console.log('║                    📊 FINAL TEST SUMMARY                        ║');
+        console.log('║                    📊 FINAL TEST SUMMARY                       ║');
         console.log('╠════════════════════════════════════════════════════════════════╣');
         console.log(`║  ✅ Passed:  ${String(this.suiteStats.passed).padEnd(49)}║`);
         console.log(`║  ❌ Failed:  ${String(this.suiteStats.failed).padEnd(49)}║`);
@@ -507,14 +515,12 @@ class CustomTTAReporter implements Reporter {
             return;
         }
 
-        // Initialize consoleLogs array for all steps
         for (const step of testSteps) {
             if (!step.consoleLogs) {
                 step.consoleLogs = [];
             }
         }
 
-        // Process attachments that might contain step logs
         for (const attachment of result.attachments) {
             const logMatch = attachment.name.match(/^step-(\d+)-logs$/);
             if (logMatch && attachment.contentType === 'text/plain') {
@@ -547,29 +553,16 @@ class CustomTTAReporter implements Reporter {
             return;
         }
 
-        // IMPORTANT: stdout from test code does NOT include our reporter's ⏳/✅ markers
-        // Those go directly to terminal, not into test stdout.
-        // So we need to distribute logs among steps based on step count.
-
-        // Strategy: If we have N steps and M logs, try to match logs to steps by:
-        // 1. Looking for patterns in the logs that might indicate step boundaries
-        // 2. Or distribute evenly if logs appear sequential
-
-        // Build step title patterns for potential matching
         const stepTitlePatterns: RegExp[] = testSteps.map(step => {
-            // Create a pattern from the step title (escape special chars)
             const escaped = step.title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
             return new RegExp(escaped, 'i');
         });
 
-        // Track which logs have been assigned
         const assignedLogs: boolean[] = new Array(allLogs.length).fill(false);
 
-        // First pass: Try to match logs to steps by step title content
         for (let logIndex = 0; logIndex < allLogs.length; logIndex++) {
             const log = allLogs[logIndex];
 
-            // Check if this log mentions any step title
             for (let stepIndex = 0; stepIndex < testSteps.length; stepIndex++) {
                 if (stepTitlePatterns[stepIndex].test(log)) {
                     testSteps[stepIndex].consoleLogs!.push(log);
@@ -579,25 +572,19 @@ class CustomTTAReporter implements Reporter {
             }
         }
 
-        // Second pass: Distribute remaining logs sequentially
-        // Assume logs appear in the same order as steps execute
         const unassignedLogs = allLogs.filter((_, idx) => !assignedLogs[idx]);
 
         if (unassignedLogs.length > 0 && testSteps.length > 0) {
-            // If we have steps with no logs yet, distribute unassigned logs
             const stepsNeedingLogs = testSteps.filter(s => s.consoleLogs!.length === 0);
 
             if (stepsNeedingLogs.length > 0) {
-                // Distribute logs evenly among steps that need them
                 const logsPerStep = Math.ceil(unassignedLogs.length / testSteps.length);
                 let logIdx = 0;
 
                 for (let stepIdx = 0; stepIdx < testSteps.length && logIdx < unassignedLogs.length; stepIdx++) {
                     const step = testSteps[stepIdx];
-                    // Add logs to this step (either until we hit logsPerStep or run out of logs)
                     const logsForThisStep = Math.min(logsPerStep, unassignedLogs.length - logIdx);
 
-                    // Only add if step doesn't already have logs
                     if (step.consoleLogs!.length === 0) {
                         for (let i = 0; i < logsForThisStep; i++) {
                             step.consoleLogs!.push(unassignedLogs[logIdx++]);
@@ -605,7 +592,6 @@ class CustomTTAReporter implements Reporter {
                     }
                 }
             } else {
-                // All steps have some logs, add remaining to first step
                 testSteps[0].consoleLogs!.push(...unassignedLogs);
             }
         }
@@ -781,12 +767,10 @@ class CustomTTAReporter implements Reporter {
     }
 
     private generateSuiteStatus(): string {
-        // Combined into meta section - return empty
         return '';
     }
 
     private generateRunStatus(): string {
-        // Combined into meta section - return empty
         return '';
     }
 
